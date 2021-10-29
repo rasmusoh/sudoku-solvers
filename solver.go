@@ -276,11 +276,5 @@ func ToSet(char rune) uint16 {
 }
 
 func ToInt(set uint16) int {
-	for i := 1; i <= n; i++ {
-		if set%2 > 0 {
-			return i
-		}
-		set = set >> 1
-	}
-	return 0
+	return bits.TrailingZeros16(set) + 1
 }
