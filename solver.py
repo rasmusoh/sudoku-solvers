@@ -1,13 +1,20 @@
 import copy
+import time
 
+max_solved = 10000
 n = 9
 c = 3
 
 
 def run_tests():
+    start_time = time.time()
     with open('./sudoku.csv') as f:
         next(f)
         for i, line in enumerate(f):
+            if i > max_solved:
+                end_time = time.time()
+                print(f'solved {max_solved} in {end_time-start_time}')
+                return
             if i % 1000 == 0:
                 print(f'solving at {i}')
             [start, end] = line.split(',')

@@ -7,11 +7,12 @@ import (
 	"log"
 	"math/bits"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 )
 
-const startAt = 2
-const lines = 1000000
+const max = 1000000
 const n = 9
 const c = 3
 
@@ -23,6 +24,7 @@ type Game struct {
 }
 
 func main() {
+	start := time.Now()
 	file, err := os.Open("sudoku.csv")
 	if err != nil {
 		log.Fatal(err)
@@ -34,42 +36,55 @@ func main() {
 	}()
 
 	scanner := bufio.NewScanner(file)
+	scanner.Scan()
 
-	i := 0
+	ch := make(chan string, 100)
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go solver(ch)
+	}
+	i := 1
+	defer func() {
+		t := time.Now()
+		elapsed := t.Sub(start)
+		fmt.Printf("solved %d puzzles in %v", i, elapsed)
+	}()
 	for scanner.Scan() {
-		if i > lines {
+		if i > max {
 			return
 		}
-		i += 1
-		if i < startAt {
-			continue
-		}
-		s := strings.Split(scanner.Text(), ",")
-		game, err := ParseBoard(s[0])
-		if err != nil {
-			panic(err)
-		}
-		err = game.Solve()
-		if err != nil {
-			log.Fatalf("error at %d: %e", i, err)
-		}
-		if game.ToString() != s[1] {
-			fmt.Printf("discrepancy at %d\n", i)
-		}
+		ch <- scanner.Text()
+		i++
 		if i%1000 == 0 {
 			fmt.Printf("solving at %d \n", i)
 		}
 	}
+	close(ch)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 }
 
+func solver(ch chan string) {
+	for line := range ch {
+		s := strings.Split(line, ",")
+		game, err := ParseBoard(s[0])
+		if err != nil {
+			panic(err)
+		}
+		err = game.Solve()
+		if err != nil {
+			log.Fatalf("error for line %s: %e", line, err)
+		}
+		if game.ToString() != s[1] {
+			fmt.Printf("discrepancy for line %s\n", line)
+		}
+	}
+}
+
 func (game *Game) Solve() error {
 	valid, err := game.PropagateAll()
 	if err != nil {
-		fmt.Println("easy")
 		return err
 	}
 	if !valid {
@@ -78,7 +93,6 @@ func (game *Game) Solve() error {
 	if game.IsSolved() {
 		return nil
 	}
-	fmt.Println("difficult")
 	hyps := game.GetNextHypotheticals()
 	for len(hyps) > 0 {
 		hyp := hyps[len(hyps)-1]
@@ -120,7 +134,6 @@ func (game *Game) GetNextHypotheticals() []*Game {
 			hyp := game.Copy()
 			hyp.board[minY][minX] = uint16(1 << i)
 			hyp.toProcess = append(hyp.toProcess, Coord{minY, minX})
-			fmt.Printf("add toProcess %v\n", hyp.toProcess)
 			hyps = append(hyps, hyp)
 		}
 		set = set >> 1
@@ -263,10 +276,6 @@ func ToSet(char rune) uint16 {
 }
 
 func ToInt(set uint16) int {
-	if set == 0 {
-		return 0
-	}
-
 	for i := 1; i <= n; i++ {
 		if set%2 > 0 {
 			return i
