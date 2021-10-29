@@ -8,6 +8,8 @@ def run_tests():
     with open('./sudoku.csv') as f:
         next(f)
         for i, line in enumerate(f):
+            if i % 1000 == 0:
+                print(f'solving at {i}')
             [start, end] = line.split(',')
             try:
                 expected = parse_board(end.rstrip('\n'))
@@ -29,10 +31,7 @@ def solve(board):
         raise ValueError('board not solvable from starting position')
     elif is_solved(board):
         return board
-    print('hard')
     hypotheticals = get_next_hypotheticals(board)
-    for hyp in hypotheticals:
-        print_board(hyp)
     while len(hypotheticals) > 0:
         hyp = hypotheticals.pop()
         if not propagate_all(hyp):
